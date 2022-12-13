@@ -13,10 +13,13 @@ Solution for deploying https://github.com/bfg-group/stack_over_search app locall
 ## Usage:
 
 1) Clone repo
-  git clone git@github.com:SozinovD/stack_over_search_deployment.git
+
+`git clone git@github.com:SozinovD/stack_over_search_deployment.git`
 
 2) Make main script executable
-  cd stack_over_search_deployment; chmod +x install-and-run.sh
+
+`cd stack_over_search_deployment; chmod +x install-and-run.sh`
 
 3) run main script
-  ./install-and-run.sh
+
+`./install-and-run.sh`
