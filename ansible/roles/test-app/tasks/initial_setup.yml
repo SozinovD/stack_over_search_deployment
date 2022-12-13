@@ -1,0 +1,94 @@
+---
+# init new host
+
+- name: Include vars
+  include_vars:
+    file: "main.yml"
+
+- name: installing required packages
+  apt:
+    pkg:
+    - wget
+    - git
+    - make
+    - build-essential
+    - tar
+    - lsb-release
+    - redis
+    - mysql-server
+    - mysql-client
+    - libssl-dev
+    - zlib1g-dev
+    - nginx
+    - nano
+
+- name: creating dir for mysql files
+  file:
+    path:  "/var/run/mysqld"
+    state: directory
+    mode:  0755
+    owner: mysql
+    group: mysql
+
+- name: creating user that runs app
+  user:
+    name:               "{{ app_runner_user }}"
+    shell:              "/bin/bash"
+    ssh_key_passphrase: "{{ app_runner_pass }}"
+    append:             true
+    groups:
+      - systemd-journal
+
+- name: creating dir for python sourcecode
+  file:
+    path:  "{{ python_source_local_dir }}"
+    state: directory
+    mode:  0755
+    owner: root
+    group: root
+
+- name: getting python version from link
+  delegate_to: localhost
+  become:      false
+  shell:
+    cmd: "python_archive_name=`echo {{ python_source_url }} | awk -F/ '{print $NF}'`; echo ${python_archive_name%.*}"
+  register: python_source_version
+
+- name: unpacking python sourcecode
+  unarchive:
+    src:  "{{ python_source_url }}"
+    dest: "{{ python_source_local_dir }}"
+    remote_src: yes
+
+- name: configuring python before installation
+  ignore_errors: true
+  shell:
+    cmd:    "./configure --with-zlib"
+    chdir:  "{{ python_source_local_dir }}/{{ python_source_version.stdout }}"
+
+- name: installing python from source
+  ignore_errors: true
+  make:
+    target: "install"
+    chdir:  "{{ python_source_local_dir }}/{{ python_source_version.stdout }}"
+
+- name: installing python modules
+  pip:
+    state: present
+    name:
+      - pymysql
+      - virtualenv
+
+- name: creating dir for host status files
+  file: 
+    path:  "{{ host_status_files_dir }}"
+    state: directory
+    owner: root
+    group: root
+
+- name: creating file that indicates that init is completed
+  file: 
+    path:  "{{ host_status_files_dir }}/init_done"
+    state: touch
+    owner: root
+    group: root

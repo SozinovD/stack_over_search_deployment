@@ -1,0 +1,14 @@
+[Unit]
+Description=Redis
+After=syslog.target
+
+[Service]
+User={{ app_runner_user }}
+Group={{ app_runner_user }}
+WorkingDirectory={{ app_local_dir }}
+ExecStart={{ app_local_dir }}/venv/bin/renewer_start
+RestartSec=5s
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,27 @@
+---
+# vars file for test-app
+
+python_source_url:          "https://www.python.org/ftp/python/3.6.13/Python-3.6.13.tgz"
+python_source_local_dir:    "/opt/python-source"
+
+app_runner_user:  "app-runner"
+app_runner_pass:  "5uperPa55!"
+
+app_source_url:     "https://github.com/bfg-group/stack_over_search.git"
+app_data_etc_dir:   "/etc/stackoversearch"
+app_local_dir:      "/home/{{ app_runner_user }}/app"
+
+host_status_files_dir: "/root/host_status_files"
+
+repo_subdir:            "stackoversearch"
+settings_file_in_repo:  "stack_settings.ini"
+
+mysql_tables_file: "tables.sql"
+
+gunicorn_conf_file: "gunicorn.conf.py"
+
+gunicorn_workers_num: "3"
+gunicorn_app_entry: "stackoversearch.stack_oversearch:app"
+gunicorn_worker_class: "aiohttp.worker.GunicornWebWorker"
+
+all_logs_dir: "/var/log/{{ app_runner_user }}"

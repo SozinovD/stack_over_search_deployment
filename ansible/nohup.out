@@ -1,0 +1,42 @@
+
+PLAY [test_app_group] **********************************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [test_app_host]
+
+TASK [test-app : Include vars] *************************************************
+ok: [test_app_host]
+
+TASK [test-app : Checking if init is already done] *****************************
+ok: [test_app_host]
+
+TASK [test-app : initial setup] ************************************************
+included: /home/kali/self/test-tasks/bfg-group/ansible/roles/test-app/tasks/initial_setup.yml for test_app_host
+
+TASK [test-app : installing required packages] *********************************
+
+PLAY [test_app_group] **********************************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [test_app_host]
+
+TASK [test-app : Include vars] *************************************************
+ok: [test_app_host]
+
+TASK [test-app : Checking if init is already done] *****************************
+ok: [test_app_host]
+
+TASK [test-app : initial setup] ************************************************
+included: /home/kali/self/test-tasks/bfg-group/ansible/roles/test-app/tasks/initial_setup.yml for test_app_host
+
+TASK [test-app : installing required packages] *********************************
+fatal: [test_app_host]: UNREACHABLE! => changed=false 
+  msg: |-
+    Data could not be sent to remote host "127.0.0.1". Make sure this host can be reached over ssh: Traceback (most recent call last):
+      File "<string>", line 1, in <module>
+    ModuleNotFoundError: No module named 'apt'
+  unreachable: true
+
+PLAY RECAP *********************************************************************
+test_app_host              : ok=4    changed=0    unreachable=1    failed=0    skipped=0    rescued=0    ignored=0   
+

@@ -1,0 +1,181 @@
+---
+# configure app on host
+
+- name: Include vars
+  include_vars:
+    file: "main.yml"
+
+- name: creating dir for app in user homedir
+  file:
+    path:  "{{ app_local_dir }}"
+    state: directory
+    mode:  0755
+    owner: "{{ app_runner_user }}"
+    group: "{{ app_runner_user }}"
+
+- name: creating dir for app files in /etc
+  file:
+    path:  "{{ app_data_etc_dir }}"
+    state: directory
+    mode:  0755
+    owner: "{{ app_runner_user }}"
+    group: "{{ app_runner_user }}"
+
+- name: creating dir for logs
+  file:
+    path:  "{{ all_logs_dir }}"
+    state: directory
+    mode:  0755
+    owner: "{{ app_runner_user }}"
+    group: "{{ app_runner_user }}"
+
+- name: getting app repo name
+  delegate_to: localhost
+  become:      false
+  shell:
+    cmd: "app_repo_name=`echo {{ app_source_url }} | awk -F/ '{print $NF}'`; echo ${app_repo_name%.*}"
+  register: app_repo_name
+
+- name: checking if repo exists on host
+  stat:
+    path: "{{ host_status_files_dir }}/app_configured"
+  register: repo_exists_on_host
+
+- name: changing app_repo_name var format
+  set_fact:
+    app_repo_name: "{{ app_repo_name.stdout }}"
+
+- name: cloning repo
+  become_method:  su
+  become_user:    "{{ app_runner_user }}"
+  git:
+    repo:   "{{ app_source_url }}"
+    dest:   "{{ app_local_dir }}/{{ app_repo_name }}"
+    force:  true
+  when: not repo_exists_on_host.stat.exists
+
+- name: changing dir for app logs
+  shell:
+    cmd: "sed -i 's@path = /etc/stackoversearch/logs@path = {{ all_logs_dir }}@' {{ app_local_dir }}/{{ app_repo_name }}/{{ repo_subdir }}/{{ settings_file_in_repo }}"
+
+- name: fixing lib version in requirements.txt
+  shell:
+    cmd: "sed -i 's/aiohttp==2.3.8/aiohttp==3.8.3/' {{ app_local_dir }}/{{ app_repo_name }}/requirements.txt"
+
+- name: fixing lib version in setup.py
+  shell:
+    cmd: "sed -i 's/aiohttp==2.3.8/aiohttp==3.8.3/' {{ app_local_dir }}/{{ app_repo_name }}/setup.py"
+
+- name: copying main app dir up on one level
+  copy:
+    remote_src: true
+    src:        "{{ app_local_dir }}/{{ app_repo_name }}/{{ repo_subdir }}/"
+    dest:       "{{ app_local_dir }}/{{ repo_subdir }}"
+    owner:      "{{ app_runner_user }}"
+    group:      "{{ app_runner_user }}"
+
+- name: copying settings settings file to /etc
+  copy:
+    remote_src: true
+    src:        "{{ app_local_dir }}/{{ app_repo_name }}/{{ repo_subdir }}/{{ settings_file_in_repo }}"
+    dest:       "{{ app_data_etc_dir }}/{{ settings_file_in_repo }}"
+    owner:      "{{ app_runner_user }}"
+    group:      "{{ app_runner_user }}"
+
+- name: fetching settings file
+  fetch:
+    src:  "{{ app_local_dir }}/{{ app_repo_name }}/{{ repo_subdir }}/{{ settings_file_in_repo }}"
+    dest: "{{ settings_file_in_repo }}"
+    flat: true
+
+- name: getting username for mysql user from ini file
+  set_fact:
+    mysql_user: "{{ lookup( 'ini', 'user section=mysql file={{ settings_file_in_repo }}' ) }}"
+
+- name: getting password for mysql user from ini file
+  set_fact:
+    mysql_user_pass: "{{ lookup( 'ini', 'password section=mysql file={{ settings_file_in_repo }}' ) }}"
+
+- name: making sure mysql server is running and enabled
+  shell:
+    cmd: "systemctl enable mysql --now"
+
+- name: changing db user pass
+  mysql_user:
+    check_implicit_admin: true
+    name:                 "{{ mysql_user }}"
+    password:             "{{ mysql_user_pass }}"
+    login_user:           "root"
+    login_password:       "{{ mysql_user_pass }}"
+    login_unix_socket:    /var/run/mysqld/mysqld.sock
+
+- name: getting mysql db name from ini file
+  set_fact:
+    mysql_db: "{{ lookup( 'ini', 'db section=mysql file={{ settings_file_in_repo }}' ) }}"
+
+- name: creating mysql db
+  mysql_db:
+    login_user:         "{{ mysql_user }}"
+    login_password:     "{{ mysql_user_pass }}"
+    name:               "{{ mysql_db }}"
+    state:              present
+    login_unix_socket:  /var/run/mysqld/mysqld.sock
+
+- name: creating tables in mysql db
+  mysql_db:
+    login_user:         "{{ mysql_user }}" 
+    login_password:     "{{ mysql_user_pass }}"
+    chdir:              "{{ app_local_dir }}/{{ app_repo_name }}"
+    target:             "{{ mysql_tables_file }}"
+    state:              import
+    name:               "{{ mysql_db }}"
+    login_unix_socket:  /var/run/mysqld/mysqld.sock
+  ignore_errors: true
+
+- name: creating venv
+  become_method: su
+  become_user: "{{ app_runner_user }}"
+  shell:
+    executable: "/bin/bash"
+    cmd:        "virtualenv --python python3 venv"
+    chdir:      "{{ app_local_dir }}"
+
+- name: activating venv by default on login bu app runner user
+  copy:
+    src:        ".bashrc"
+    dest:       "/home/{{ app_runner_user }}/.bashrc"
+    owner:      "{{ app_runner_user }}"
+    group:      "{{ app_runner_user }}"
+
+- name: installing gunicorn to venv
+  become_method: su
+  become_user: "{{ app_runner_user }}"
+  pip:
+    virtualenv: "venv"
+    chdir:      "{{ app_local_dir }}"
+    name:
+      - gunicorn
+      - certifi
+
+- name: installing app itself
+  become_method: su
+  become_user: "{{ app_runner_user }}"
+  pip:
+    virtualenv: "venv"
+    name:       "file://{{ app_local_dir }}/stack_over_search"
+    chdir:      "{{ app_local_dir }}"
+
+- name: copying gunicorn config
+  template:
+    src:        "{{ gunicorn_conf_file }}"
+    dest:       "{{ app_local_dir }}/{{ gunicorn_conf_file }}"
+    owner:      "{{ app_runner_user }}"
+    group:      "{{ app_runner_user }}"
+
+
+- name: creating file that indicates that app is configured
+  file: 
+    path:  "{{ host_status_files_dir }}/app_configured"
+    state: touch
+    owner: root
+    group: root

@@ -1,0 +1,23 @@
+[Unit]
+Description=gunicorn daemon
+After=network.target
+
+[Service]
+Type=notify
+# the specific user that our service will run as
+User={{ app_runner_user }}
+Group={{ app_runner_user }}
+# another option for an even more restricted service is
+# DynamicUser=yes
+# see http://0pointer.net/blog/dynamic-users-with-systemd.html
+RuntimeDirectory={{ repo_subdir }}
+WorkingDirectory={{ app_local_dir }}/
+ExecStart={{ app_local_dir }}/venv/bin/gunicorn --config {{ app_local_dir }}/{{ gunicorn_conf_file }} {{ gunicorn_app_entry }}
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

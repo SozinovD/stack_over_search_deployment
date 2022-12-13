@@ -1,0 +1,4 @@
+- hosts: test_app_group
+  become: true
+  roles:
+    - role: test-app

@@ -1,0 +1,101 @@
+---
+
+- name: Include vars
+  include_vars:
+    file: "main.yml"
+
+- name: creating dir for daemons
+  file: 
+    name:   "/run/systemd/system/"
+    state:  "directory"
+    owner:  "root"
+    group:  "root"
+
+- name: make sure systemctl is actual
+  copy:
+    src:    "systemctl.py"
+    dest:   "/usr/bin/systemctl"
+    owner:  root
+    group:  root
+    mode:   '+x'
+
+- name: change permission for /var/log dir
+  file: 
+    dest:     /var/log/journal/
+    mode:     g+w
+    recurse:  true
+
+- name: copying nginx config
+  template:
+    src:  "nginx.conf"
+    dest: "/etc/nginx/nginx.conf"
+    owner: root
+    group: root
+    mode: '0777'
+
+- name: copying unit files
+  copy:
+    src:  "{{ item }}"
+    dest: "/run/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: '0777'
+  with_items:
+    - ssh.service
+    - redis-server.service
+    - nginx.service
+
+- name: copying unit files from templates
+  template:
+    src:  "{{ item }}"
+    dest: "/run/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: '0777'
+  with_items:
+    - gunicorn.service
+    - renewer.service
+
+- name: enabling ssh
+  service:
+    name:     ssh
+    state:    restarted
+    enabled:  true
+
+- name: enabling mysql
+  service:
+    name:     mysql
+    state:    started
+    enabled:  true
+
+- name: enabling nginx
+  service:
+    name:     nginx
+    state:    started
+    enabled:  true
+  register: output
+
+- name: enabling redis-server
+  service:
+    name:     redis-server
+    state:    started
+    enabled:  true
+
+- name: enabling renewer
+  service:
+    name:     renewer
+    state:    started
+    enabled:  true
+
+- name: enabling gunicorn
+  service:
+    name:     "gunicorn"
+    state:    started
+    enabled:  true
+
+- name: creating file that indicates that systemctl is configured
+  file: 
+    path:  "{{ host_status_files_dir }}/systemctl_configured"
+    state: touch
+    owner: root
+    group: root

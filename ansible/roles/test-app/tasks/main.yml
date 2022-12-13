@@ -1,0 +1,35 @@
+---
+# tasks file for test-app
+
+- name: Include vars
+  include_vars:
+    file: "main.yml"
+
+- name: "Checking if init is already done"
+  stat:
+    path: "{{ host_status_files_dir }}/init_done"
+  register: init_done
+
+- name: initial setup
+  include_tasks: tasks/initial_setup.yml
+  when: not init_done.stat.exists
+
+
+- name: "Checking if app is already configured"
+  stat:
+    path: "{{ host_status_files_dir }}/app_configured"
+  register: app_configured
+
+- name: configure app
+  include_tasks: tasks/configure_app.yml
+  when: not app_configured.stat.exists
+
+
+- name: "Checking if systemctl is already configured"
+  stat:
+    path: "{{ host_status_files_dir }}/systemctl_configured"
+  register: systemctl_configured
+
+- name: configure systemctl
+  include_tasks: tasks/configure_systemctl.yml
+  when: not systemctl_configured.stat.exists

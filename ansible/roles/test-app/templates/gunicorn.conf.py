@@ -1,0 +1,5 @@
+bind = '127.0.0.1:8080'
+workers = '{{ gunicorn_workers_num }}'
+worker_class = '{{ gunicorn_worker_class }}'
+accesslog='{{ all_logs_dir }}/gunicorn_access.log'
+errorlog='{{ all_logs_dir }}/gunicorn_error.log'
